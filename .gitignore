@@ -1,20 +1,41 @@
-# Python-generated files
+# Byte-compiled / optimized / DLL files
 __pycache__/
-*.py[oc]
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# PyTorch weights & heavy model checkpoints
+weights/*.pth
+*.pth
+*.pt
+*.onnx
+*.bin
+
+# Generated datasets & temporary data
+data/
+extracted_casia/
+
+# Generated runtime outputs & reports (keep directory structure if needed, ignore generated contents)
+outputs/*
+!outputs/.gitkeep
+
+# IDE / Editor configuration
+.vscode/
+.idea/
+.gemini/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Python build artifacts
 build/
 dist/
-wheels/
-*.egg-info
-
-# Virtual environments & IDE
-.venv
-.pytest_cache/
-.gemini/
-
-# Generated runtime artifacts & datasets
-outputs/
-dataset/
-weights/
-extracted_casia/
-*.pth
-*.log
+*.egg-info/
