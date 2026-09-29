@@ -1,0 +1,202 @@
+# Netra-One Forensics — Complete Run & Execution Guide
+
+This guide provides step-by-step terminal instructions for setting up the environment, running the complete test suite, importing/generating datasets (including CASIA v2.0), training models, executing forensic evidence audits, and inspecting generated evidence artifacts.
+
+---
+
+## Table of Contents
+1. [Prerequisites & Environment Setup](#1-prerequisites--environment-setup)
+2. [Running the Unit & Integration Test Suite](#2-running-the-unit--integration-test-suite)
+3. [Generating or Importing Datasets](#3-generating-or-importing-datasets)
+   - [Option A: Real Benchmark Dataset — CASIA v2.0 (Recommended)](#option-a-using-real-benchmark-dataset--casia-v20-recommended)
+   - [Option B: Procedural Synthetic Dataset Generator](#option-b-generating-synthetic-procedural-datasets)
+4. [Model Training & Ablation Pipeline](#4-model-training--ablation-pipeline)
+5. [Running the Forensic Audit CLI](#5-running-the-forensic-audit-cli)
+6. [Understanding Output Evidence Artifacts](#6-understanding-the-output-evidence-artifacts)
+7. [Troubleshooting & FAQ](#7-troubleshooting--faq)
+
+---
+
+## 1. Prerequisites & Environment Setup
+
+Ensure you have **Python 3.14+** and **uv** (or standard `pip`) installed.
+
+```bash
+# Clone the repository
+git clone https://github.com/sudarshan-bhavikatte/oxastra_assignment.git
+cd oxastra_assignment
+
+# Option 1: Fast sync with uv (Recommended)
+uv sync
+
+# Option 2: Standard pip install using requirements.txt
+pip install -r requirements.txt
+```
+
+*Note: If running directly in PowerShell or Bash without `uv`, activate your virtual environment:*
+- **Windows PowerShell:** `.\.venv\Scripts\Activate.ps1`
+- **Linux/macOS:** `source .venv/bin/activate`
+
+---
+
+## 2. Running the Unit & Integration Test Suite
+
+The test suite covers all 4 assignment parts with 25 automated unit and integration tests.
+
+```bash
+# Run the complete test suite (25 tests)
+uv run python -m pytest tests/
+
+# Run tests with detailed verbose output
+uv run python -m pytest tests/ -v
+```
+
+### Module-by-Module Testing
+```bash
+# Part A: Forensic Signal Extraction (ELA, Noise Residual, FFT, MAD Z-Score, Localization BBox)
+uv run python -m pytest tests/test_forensic_features.py
+
+# Part B: Synthetic Data Generator & 9-Channel MobileNetV2 Model Architecture
+uv run python -m pytest tests/test_part_b.py
+
+# Part C: Forensic Audit CLI, SHA-256 Byte Hashing, JSON Evidence Report & Edge Cases
+uv run python -m pytest tests/test_part_c.py
+
+# CASIA v2.0 Importer & Strict Source Splitter Tests
+uv run python -m pytest tests/test_casia_importer.py
+```
+
+---
+
+## 3. Generating or Importing Datasets
+
+### Option A: Using Real Benchmark Dataset — CASIA v2.0 (Recommended)
+Automatically download and split the CASIA v2.0 Image Tampering Database (12,614 images) with strict source-image partitioning to prevent data leakage:
+
+```bash
+# Automatically download via kagglehub & organize into ./dataset (train/val)
+uv run python -m oxastra_assignment.prepare_casia_dataset
+
+# Or process a local CASIA 2.0 directory path (if already downloaded):
+uv run python -m oxastra_assignment.prepare_casia_dataset --source_dir /path/to/CASIA2.0
+
+# Or process a quick subsample for fast training (e.g. 1,000 images):
+uv run python -m oxastra_assignment.prepare_casia_dataset --max_samples 1000
+```
+
+### Option B: Generating Synthetic Procedural Datasets
+If you wish to create a fresh synthetic dataset procedurally (Splice, Copy-Move, Inpainting):
+
+```bash
+# Generate synthetic dataset with 100 sample images (saved to ./dataset)
+uv run python -c "from oxastra_assignment.synthetic_data import create_synthetic_dataset; create_synthetic_dataset('dataset', num_samples=100)"
+```
+
+---
+
+## 4. Model Training & Ablation Pipeline
+
+> 🚀 **Speedup Tip for CPU Users:** Training MobileNetV2 for 8 full epochs on CPU can take time. Use **Option A (Fast CPU)** below to train in **under 15 seconds**!
+
+### Option A: Accelerated Fast CPU Training (15 Seconds — Recommended)
+Freezes the feature backbone and trains only the linear head for 2 epochs:
+
+```powershell
+uv run python -m oxastra_assignment.train_or_eval_model --epochs 2 --batch_size 16 --freeze_backbone
+```
+
+### Option B: Instant Heuristic Baseline (0.0 Seconds)
+Rule-based MAD Z-score thresholding classifier — runs instantly without backpropagation:
+
+```powershell
+uv run python -m oxastra_assignment.train_or_eval_model --variant heuristic
+```
+
+### Option C: Full Training (Target 9-Channel Multi-Input)
+Concatenates RGB (3ch) + ELA (3ch) + Noise Residual (3ch) using 9-channel weight patching:
+
+```powershell
+uv run python -m oxastra_assignment.train_or_eval_model --epochs 8 --batch_size 16 --variant multichannel
+```
+
+### Option D: ELA-Only Model Variant (Ablation Study)
+Input: 3-channel ELA map:
+
+```powershell
+uv run python -m oxastra_assignment.train_or_eval_model --epochs 8 --batch_size 16 --variant ela_only
+```
+
+*Artifacts generated by training:*
+- `weights/best_model.pth` — Best model checkpoint based on validation ROC-AUC
+- `outputs/roc_curve.png` — Validation ROC Curve plot (150+ DPI)
+- `outputs/confusion_matrix.png` — Validation Confusion Matrix plot (150+ DPI)
+
+---
+
+## 5. Running the Forensic Audit CLI
+
+The `forensic-audit` CLI tool audits a single image file for digital tampering, computes raw pre-decoding SHA-256 byte hashes, and exports a BSA 2023 §63 compliant JSON evidence report along with a 3-panel diagnostic plot.
+
+### Mode 1: Audit using Trained Deep Learning Weights (Recommended)
+```bash
+# Single-line command:
+uv run forensic-audit --input samples/sample_tampered.jpg --output_dir outputs --weights weights/best_model.pth
+```
+
+### Mode 2: Audit using Heuristic Baseline (No Weights File Needed)
+```bash
+# Single-line command:
+uv run forensic-audit --input samples/sample_tampered.jpg --output_dir outputs
+```
+
+### Mode 3: Custom ELA Quality & Decision Threshold Options
+```bash
+# Single-line command:
+uv run forensic-audit --input samples/sample_tampered.jpg --output_dir outputs --weights weights/best_model.pth --quality 95 --threshold 0.40
+```
+
+---
+
+## 6. Understanding Output Evidence Artifacts
+
+When you run a forensic audit, two evidence files are created in `--output_dir`:
+
+### 1. JSON Evidence Report (`outputs/<filename>_report.json`)
+Statutory evidence log formatted per **Bharatiya Sakshya Adhiniyam (BSA) 2023 §63**:
+
+```json
+{
+  "file_name": "sample_tampered.jpg",
+  "sha256": "7faed3c76642710767e2b5905a5ee5deee3e3ca65ab8f23856735ae6e010a3c3",
+  "tamper_verdict": "TAMPERED",
+  "manipulation_probability": 0.8700,
+  "suspected_region_bbox": [64, 64, 64, 64],
+  "compression_artifact_anomaly_score": 4.2100,
+  "timestamp": "2026-09-29T17:30:05.787110+00:00",
+  "tool_version": "1.0.0",
+  "model_weights_sha256": "f8a91b...",
+  "ela_quality": 90,
+  "analysis_notes": [
+    "Evaluated with PyTorch MobileNetV2 (9-channel) model."
+  ],
+  "disclaimer": "This report is an automated forensic indicator, not legal proof. Human expert review is required. Pursuant to BSA 2023 §63, electronic evidence requires hash verification and chain of custody documentation."
+}
+```
+
+### 2. 3-Panel Diagnostic Figure (`outputs/<filename>_forensic.png`)
+High-resolution (150+ DPI) diagnostic visualization containing:
+- **Panel 1:** Original Input Image with red bounding box drawn around suspected tampered region.
+- **Panel 2:** Error Level Analysis (ELA) JET colormap heatmap.
+- **Panel 3:** Noise Residual Variance HOT colormap heatmap.
+- **Header:** Color-coded verdict banner displaying `Verdict`, `P(tamper)`, and `Anomaly Score`.
+
+---
+
+## 7. Troubleshooting & FAQ
+
+| Problem | Cause | Solution |
+|---|---|---|
+| `WARNING: Non-JPEG input format detected` | Target image is `.png`, `.bmp`, or `.tif` | Lossless images lack historical JPEG quantization grids. The tool automatically re-saves in memory to JPEG Q=90 and logs a warning note. |
+| `ValueError: Image dimensions smaller than 64x64` | Image resolution too low | Target image must be at least 64x64 pixels to compute median filter and 32x32 block variance maps. |
+| `FileNotFoundError: Input image file not found` | Incorrect path passed to `--input` | Double check image path relative to workspace root (e.g. `samples/sample_tampered.jpg`). |
+| `ModuleNotFoundError` | Virtualenv not activated or dependencies missing | Run `uv sync` or `pip install -r requirements.txt`. |

@@ -1,0 +1,27 @@
+[project]
+name = "oxastra-assignment"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "sudarshan-bhavikatte", email = "sudarshanbhavikatte@gmail.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "matplotlib>=3.11.2",
+    "numpy>=2.5.3",
+    "opencv-python>=5.0.0.93",
+    "pillow>=12.3.0",
+    "pytest>=9.1.1",
+    "scipy>=1.18.1",
+    "torch>=2.14.0",
+    "torchvision>=0.29.0",
+]
+
+[project.scripts]
+oxastra-assignment = "oxastra_assignment:main"
+forensic-audit = "oxastra_assignment:main"
+
+[build-system]
+requires = ["uv_build>=0.12.15,<0.13.0"]
+build-backend = "uv_build"

@@ -1,0 +1,20 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments & IDE
+.venv
+.pytest_cache/
+.gemini/
+
+# Generated runtime artifacts & datasets
+outputs/
+dataset/
+weights/
+extracted_casia/
+*.pth
+*.log

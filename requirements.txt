@@ -1,0 +1,11 @@
+# Netra-One Forensics Dependencies
+# Generated for Python >= 3.14
+
+numpy>=2.5.3
+opencv-python>=5.0.0.93
+pillow>=12.3.0
+matplotlib>=3.11.2
+scipy>=1.18.1
+torch>=2.14.0
+torchvision>=0.29.0
+pytest>=9.1.1
