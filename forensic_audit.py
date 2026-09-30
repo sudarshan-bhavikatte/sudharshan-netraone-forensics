@@ -22,7 +22,6 @@ from model import NetraForensicClassifier, build_model
 
 
 def compute_file_sha256(filepath):
-    """Computes SHA-256 hash by streaming raw file bytes."""
     sha256_hash = hashlib.sha256()
     with open(filepath, "rb") as f:
         for byte_block in iter(lambda: f.read(65536), b""):
@@ -33,10 +32,6 @@ def compute_file_sha256(filepath):
 def run_forensic_audit(
     input_path, output_dir="./reports", weights_path=None, quality=90
 ):
-    """
-    Executes end-to-end digital forensic verification on a suspect surveillance image.
-    Generates side-by-side diagnostic visualization and SHA-256 signed evidence JSON report.
-    """
     if not os.path.exists(input_path):
         print(f"[Error] Input image file not found: {input_path}")
         sys.exit(1)
@@ -45,10 +40,8 @@ def run_forensic_audit(
     base_name = os.path.basename(input_path)
     file_stem = os.path.splitext(base_name)[0]
 
-    # 1. Compute SHA-256 Hash on raw file bytes before processing
     sha256_val = compute_file_sha256(input_path)
 
-    # Check file extension and warn if non-JPEG
     ext = os.path.splitext(input_path)[1].lower()
     is_jpeg = ext in [".jpg", ".jpeg"]
     if not is_jpeg:
@@ -56,7 +49,6 @@ def run_forensic_audit(
             f"[Forensic Notice] File '{base_name}' is non-JPEG format ({ext}). ELA compression analysis will recompress into memory."
         )
 
-    # Load image safely
     try:
         pil_img = Image.open(input_path).convert("RGB")
     except Exception as e:
@@ -72,7 +64,6 @@ def run_forensic_audit(
 
     img_rgb = np.array(pil_img)
 
-    # 2. Extract Forensic Signal Maps
     ela_scaled, ela_heatmap, ela_diff_raw = extract_ela(
         img_rgb, quality=quality
     )
@@ -81,13 +72,10 @@ def run_forensic_audit(
     )
     _, fft_vis = extract_fft_spectrum(img_rgb)
 
-    # Compute compression artifact anomaly score
     anomaly_score = compute_anomaly_score(ela_diff_raw)
 
-    # Locate suspicious tampered region bounding box [x, y, w, h]
     bbox, fusion_mask = locate_suspicious_region(ela_scaled, noise_var_map)
 
-    # 3. Predict Tamper Verdict & Manipulation Probability Score
     prob = 0.0
     verdict = "AUTHENTIC"
 
@@ -97,7 +85,6 @@ def run_forensic_audit(
         model = build_model(
             weights_path=weights_path, in_channels=3, device=device
         )
-        # Preprocess ELA map for model input
         transform = transforms.Compose(
             [
                 transforms.ToPILImage(),
@@ -110,17 +97,14 @@ def run_forensic_audit(
         )
         input_tensor = (
             transform(ela_scaled).unsqueeze(0).to(device)
-        )  # 1 x 3 x 224 x 224
+        )
         prob = model.predict_probability(input_tensor)
     else:
-        # Heuristic calculation based on ELA anomaly score & noise residual max variance
-        # Standard anomaly_score threshold ~ 3.0 gives baseline confidence
         heuristic_score = min(
             1.0, (anomaly_score / 6.0) * 0.7 + (noise_var_map.max() * 0.3)
         )
         prob = round(float(heuristic_score), 2)
 
-    # Determine Verdict Threshold
     if prob >= 0.50:
         verdict = "FLAGGED_TAMPERED"
     elif prob >= 0.35:
@@ -128,16 +112,14 @@ def run_forensic_audit(
     else:
         verdict = "AUTHENTIC"
 
-    # 4. Generate Side-by-Side Visual Diagnostic Figure (150+ DPI)
     fig, axes = plt.subplots(1, 3, figsize=(15, 5), dpi=150)
 
-    # Panel 1: Original Image with Bounding Box
     img_bbox = img_rgb.copy()
     if bbox is not None:
         bx, by, bw, bh = bbox
         cv2.rectangle(
             img_bbox, (bx, by), (bx + bw, by + bh), (255, 0, 0), 3
-        )  # Red box
+        )
         cv2.putText(
             img_bbox,
             "SUSPECT REGION",
@@ -152,7 +134,6 @@ def run_forensic_audit(
     axes[0].set_title("Original Surveillance Image", fontsize=11, fontweight="bold")
     axes[0].axis("off")
 
-    # Panel 2: ELA Difference Heatmap
     ela_rgb_disp = cv2.cvtColor(ela_heatmap, cv2.COLOR_BGR2RGB)
     axes[1].imshow(ela_rgb_disp)
     axes[1].set_title(
@@ -162,7 +143,6 @@ def run_forensic_audit(
     )
     axes[1].axis("off")
 
-    # Panel 3: Noise Residual Heatmap
     noise_rgb_disp = cv2.cvtColor(noise_heatmap, cv2.COLOR_BGR2RGB)
     axes[2].imshow(noise_rgb_disp)
     axes[2].set_title("Noise Residual Variance", fontsize=11, fontweight="bold")
@@ -183,7 +163,6 @@ def run_forensic_audit(
     plt.savefig(fig_filename, bbox_inches="tight")
     plt.close()
 
-    # 5. Output Digital Evidence JSON Report
     timestamp_iso = (
         datetime.datetime.now(datetime.timezone.utc)
         .replace(microsecond=0)

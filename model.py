@@ -5,23 +5,15 @@ import torchvision.models as models
 
 
 class NetraForensicClassifier(nn.Module):
-    """
-    Lightweight Forensic Image Classifier based on MobileNetV2.
-    Supports standard 3-channel (RGB or ELA) and 9-channel multi-modal inputs:
-    [RGB (3-ch) | ELA (3-ch) | Noise Residual (3-ch)].
-    """
-
     def __init__(self, in_channels=3, pretrained=True, dropout_rate=0.3):
         super(NetraForensicClassifier, self).__init__()
         self.in_channels = in_channels
 
-        # Load MobileNetV2 pretrained backbone
         weights = (
             models.MobileNet_V2_Weights.DEFAULT if pretrained else None
         )
         base_model = models.mobilenet_v2(weights=weights)
 
-        # Adapt first convolutional layer if in_channels != 3
         if in_channels != 3:
             orig_conv = base_model.features[0][0]
             new_conv = nn.Conv2d(
@@ -33,9 +25,7 @@ class NetraForensicClassifier(nn.Module):
                 bias=orig_conv.bias is not None,
             )
             with torch.no_grad():
-                # Copy original pretrained weights to first 3 channels
                 new_conv.weight[:, :3, :, :] = orig_conv.weight
-                # Initialize additional channels with zeros or small random weights
                 nn.init.kaiming_normal_(
                     new_conv.weight[:, 3:, :, :], nonlinearity="relu"
                 )
@@ -46,14 +36,13 @@ class NetraForensicClassifier(nn.Module):
         self.features = base_model.features
         self.pooling = nn.AdaptiveAvgPool2d((1, 1))
 
-        # Classifier Head
         in_features = base_model.last_channel
         self.classifier = nn.Sequential(
             nn.Dropout(p=dropout_rate),
             nn.Linear(in_features, 64),
             nn.ReLU(inplace=True),
             nn.Dropout(p=dropout_rate / 2.0),
-            nn.Linear(64, 2),  # 2 classes: 0 = Authentic, 1 = Tampered
+            nn.Linear(64, 2),
         )
 
     def forward(self, x):
@@ -64,27 +53,14 @@ class NetraForensicClassifier(nn.Module):
         return logits
 
     def predict_probability(self, x):
-        """Returns tampered class probability (0.0 to 1.0)."""
         self.eval()
         with torch.no_grad():
             logits = self.forward(x)
             probs = torch.softmax(logits, dim=1)
-            # Probability of Class 1 (Tampered)
             return probs[:, 1].item() if probs.shape[0] == 1 else probs[:, 1]
 
 
 def build_model(weights_path=None, in_channels=3, device="cpu"):
-    """
-    Factory function to construct the classifier and optionally load checkpoint weights.
-
-    Args:
-        weights_path: Path to PyTorch model .pth checkpoint.
-        in_channels: 3 or 9.
-        device: 'cpu' or 'cuda'.
-
-    Returns:
-        model: NetraForensicClassifier instance loaded onto target device.
-    """
     model = NetraForensicClassifier(in_channels=in_channels, pretrained=True)
 
     if weights_path and os.path.exists(weights_path):

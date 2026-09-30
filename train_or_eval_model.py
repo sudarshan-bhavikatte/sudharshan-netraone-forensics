@@ -46,7 +46,6 @@ def train_model(
     os.makedirs(output_dir, exist_ok=True)
     os.makedirs(weights_dir, exist_ok=True)
 
-    # Collect image file paths and labels
     auth_dir = os.path.join(data_dir, "authentic")
     tamp_dir = os.path.join(data_dir, "tampered")
 
@@ -65,7 +64,6 @@ def train_model(
 
     print(f"[Training] Loaded {len(samples)} samples from {data_dir}")
 
-    # Stratified Train / Validation split (80% train, 20% validation)
     labels = [s[1] for s in samples]
     train_samples, val_samples = train_test_split(
         samples, test_size=0.2, random_state=42, stratify=labels, shuffle=True
@@ -103,7 +101,6 @@ def train_model(
 
         train_loss = train_loss / len(train_ds)
 
-        # Validation step
         val_loss, y_true, y_probs, y_preds = evaluate_performance(model, val_loader, criterion, device)
         val_acc = accuracy_score(y_true, y_preds)
         val_auc = roc_auc_score(y_true, y_probs) if len(np.unique(y_true)) > 1 else 0.5
@@ -119,7 +116,6 @@ def train_model(
             torch.save(model.state_dict(), best_weights_path)
             print(f" Saved new best checkpoint to {best_weights_path} (Val AUC: {val_auc:.4f})")
 
-    # Evaluate final metrics on validation set with best checkpoint
     model.load_state_dict(torch.load(best_weights_path))
     _, y_true, y_probs, y_preds = evaluate_performance(model, val_loader, criterion, device)
 
@@ -138,10 +134,8 @@ def train_model(
     print(f"ROC-AUC   : {auc:.4f}")
     print("=" * 50)
 
-    # Save ROC Curve Plot
     save_roc_curve(y_true, y_probs, auc, os.path.join(output_dir, "roc_curve.png"))
 
-    # Save Confusion Matrix Plot
     save_confusion_matrix(y_true, y_preds, os.path.join(output_dir, "confusion_matrix.png"))
 
     return best_weights_path
