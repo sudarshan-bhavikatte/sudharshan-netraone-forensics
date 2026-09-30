@@ -17,11 +17,11 @@ weights/*.pth
 *.bin
 
 # Generated datasets & temporary data
-data/
+
 extracted_casia/
 
 # Generated runtime outputs & reports (keep directory structure if needed, ignore generated contents)
-outputs/*
+
 !outputs/.gitkeep
 
 # IDE / Editor configuration

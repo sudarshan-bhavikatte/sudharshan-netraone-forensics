@@ -1,0 +1,17 @@
+{
+  "file_name": "sample_authentic.jpg",
+  "sha256": "8dd82ca1a7b9dc1e379a1e5b5cc7cbb7c8668f8f49d18b22794c1fae4dcedda7",
+  "tamper_verdict": "AUTHENTIC",
+  "manipulation_probability": 0.1948,
+  "suspected_region_bbox": [
+    0,
+    0,
+    320,
+    33
+  ],
+  "compression_artifact_anomaly_score": 48.89,
+  "timestamp": "2026-09-30T06:57:43+00:00",
+  "tool_version": "1.0.0 (Netra-One BSA 2023 \u00a763 Compliant)",
+  "ela_quality": 90,
+  "legal_disclaimer": "Automated forensic diagnostic output generated under Bharatiya Sakshya Adhiniyam 2023 Section 63 standards. Expert forensic verification required for court submission."
+}
