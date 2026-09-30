@@ -1,0 +1,12 @@
+{
+  "file_name": "sample_tampered.jpg",
+  "sha256": "4f308c4532a9f6de1d0109eae9224d3cce1cbb3cd842ee99f85d19f45c2fce51",
+  "tamper_verdict": "FLAGGED_TAMPERED",
+  "manipulation_probability": 0.69,
+  "suspected_region_bbox": null,
+  "compression_artifact_anomaly_score": 3.38,
+  "timestamp": "2026-09-30T06:00:33+00:00",
+  "tool_version": "1.0.0 (Netra-One BSA 2023 \u00a763 Compliant)",
+  "ela_quality": 90,
+  "legal_disclaimer": "Automated forensic diagnostic output generated under Bharatiya Sakshya Adhiniyam 2023 Section 63 standards. Expert forensic verification required for court submission."
+}

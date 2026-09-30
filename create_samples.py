@@ -13,7 +13,7 @@ def create_sample_files():
     # 2. Tampered Surveillance Frame (Spliced object)
     tamp_base = generate_synthetic_surveillance_frame(640, 480, scene_type="street")
     tamp_img, mask, bbox = tamper_image(tamp_base, tamper_type="splice")
-    cv2.imwrite(os.path.join(samples_dir, "sample_tampered.jpg"), tamp_img, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
+    cv2.imwrite(os.path.join(samples_dir, "sample_tampered.jpg"), tamp_img, [int(cv2.IMWRITE_JPEG_QUALITY), 92])
 
     print(f" Generated sample files in '{samples_dir}':")
     print(f" - {os.path.join(samples_dir, 'sample_authentic.jpg')}")
@@ -21,3 +21,4 @@ def create_sample_files():
 
 if __name__ == "__main__":
     create_sample_files()
+

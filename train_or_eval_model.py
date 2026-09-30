@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
+from sklearn.model_selection import train_test_split
 from sklearn.metrics import (
     accuracy_score,
     confusion_matrix,
@@ -14,7 +15,7 @@ from sklearn.metrics import (
     roc_auc_score,
     roc_curve,
 )
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from dataset import ForensicDataset, create_mini_dataset
@@ -33,7 +34,7 @@ def train_model(
     data_dir,
     output_dir="./outputs",
     weights_dir="./weights",
-    epochs=5,
+    epochs=8,
     batch_size=16,
     lr=1e-4,
     in_channels=3,
@@ -51,7 +52,7 @@ def train_model(
 
     if not os.path.exists(auth_dir) or not os.path.exists(tamp_dir):
         print(f"[Training] Dataset directory '{data_dir}' not found. Generating synthetic dataset...")
-        create_mini_dataset(data_dir, num_authentic=60, num_tampered=60)
+        create_mini_dataset(data_dir, num_authentic=100, num_tampered=100)
 
     samples = []
     for fname in os.listdir(auth_dir):
@@ -64,13 +65,16 @@ def train_model(
 
     print(f"[Training] Loaded {len(samples)} samples from {data_dir}")
 
-    # Train / Test split (80% train, 20% test)
-    val_size = int(0.2 * len(samples))
-    train_size = len(samples) - val_size
-    train_samples, val_samples = samples[:train_size], samples[train_size:]
+    # Stratified Train / Validation split (80% train, 20% validation)
+    labels = [s[1] for s in samples]
+    train_samples, val_samples = train_test_split(
+        samples, test_size=0.2, random_state=42, stratify=labels, shuffle=True
+    )
 
-    train_ds = ForensicDataset(train_samples, in_channels=in_channels)
-    val_ds = ForensicDataset(val_samples, in_channels=in_channels)
+    print(f"[Training] Stratified Split: {len(train_samples)} Train | {len(val_samples)} Validation")
+
+    train_ds = ForensicDataset(train_samples, in_channels=in_channels, is_train=True)
+    val_ds = ForensicDataset(val_samples, in_channels=in_channels, is_train=False)
 
     train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False)
@@ -80,8 +84,9 @@ def train_model(
 
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-5)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=2)
 
-    best_auc = 0.0
+    best_score = -1.0
     best_weights_path = os.path.join(weights_dir, "best_model.pth")
 
     for epoch in range(1, epochs + 1):
@@ -102,15 +107,17 @@ def train_model(
         val_loss, y_true, y_probs, y_preds = evaluate_performance(model, val_loader, criterion, device)
         val_acc = accuracy_score(y_true, y_preds)
         val_auc = roc_auc_score(y_true, y_probs) if len(np.unique(y_true)) > 1 else 0.5
+        scheduler.step(val_auc)
 
         print(
             f"Epoch {epoch:02d} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} | Val Acc: {val_acc:.4f} | Val AUC: {val_auc:.4f}"
         )
 
-        if val_auc >= best_auc:
-            best_auc = val_auc
+        score = val_auc + 0.1 * val_acc
+        if score > best_score:
+            best_score = score
             torch.save(model.state_dict(), best_weights_path)
-            print(f" Saved new best checkpoint to {best_weights_path}")
+            print(f" Saved new best checkpoint to {best_weights_path} (Val AUC: {val_auc:.4f})")
 
     # Evaluate final metrics on validation set with best checkpoint
     model.load_state_dict(torch.load(best_weights_path))
@@ -213,7 +220,7 @@ if __name__ == "__main__":
     parser.add_argument("--data_dir", type=str, default="./data/surveillance_mini", help="Path to dataset directory")
     parser.add_argument("--output_dir", type=str, default="./outputs", help="Output directory for plots")
     parser.add_argument("--weights_dir", type=str, default="./weights", help="Directory for model checkpoints")
-    parser.add_argument("--epochs", type=int, default=5, help="Number of training epochs")
+    parser.add_argument("--epochs", type=int, default=8, help="Number of training epochs")
     parser.add_argument("--batch_size", type=int, default=16, help="Batch size")
     parser.add_argument("--in_channels", type=int, default=3, help="Input channels (3 for ELA, 9 for Multi-modal)")
     args = parser.parse_args()
@@ -226,3 +233,4 @@ if __name__ == "__main__":
         batch_size=args.batch_size,
         in_channels=args.in_channels,
     )
+
